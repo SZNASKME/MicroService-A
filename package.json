@@ -1,0 +1,88 @@
+{
+  "name": "data-analytics-microservice",
+  "version": "1.0.0",
+  "description": "Microservice for comprehensive data analytics with multiple features",
+  "main": "app.py",
+  "scripts": {
+    "start": "python app.py",
+    "test": "python -m pytest tests/",
+    "install": "pip install -r requirements.txt",
+    "dev": "python app.py"
+  },
+  "keywords": [
+    "data-analytics",
+    "microservice",
+    "machine-learning",
+    "data-processing",
+    "visualization",
+    "statistics",
+    "data-validation",
+    "reporting"
+  ],
+  "author": "Data Analytics Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/MicroService-A.git"
+  },
+  "dependencies": {
+    "flask": "^2.3.3",
+    "pandas": "^2.1.1",
+    "numpy": "^1.24.3",
+    "scikit-learn": "^1.3.0",
+    "matplotlib": "^3.7.2",
+    "plotly": "^5.16.1"
+  },
+  "features": {
+    "data_processing": {
+      "file_upload": true,
+      "data_cleaning": true,
+      "data_transformation": true
+    },
+    "statistical_analysis": {
+      "descriptive_stats": true,
+      "correlation_analysis": true,
+      "hypothesis_testing": true,
+      "outlier_detection": true
+    },
+    "visualization": {
+      "charts": true,
+      "dashboards": true,
+      "interactive_plots": true
+    },
+    "machine_learning": {
+      "classification": true,
+      "regression": true,
+      "model_evaluation": true
+    },
+    "data_validation": {
+      "quality_assessment": true,
+      "schema_validation": true,
+      "anomaly_detection": true
+    },
+    "reporting": {
+      "comprehensive_reports": true,
+      "multiple_formats": true,
+      "scheduled_reports": true
+    }
+  },
+  "api_endpoints": {
+    "health": "GET /health",
+    "data_upload": "POST /api/v1/data/upload",
+    "data_clean": "POST /api/v1/data/clean",
+    "descriptive_analysis": "POST /api/v1/analysis/descriptive",
+    "correlation_analysis": "POST /api/v1/analysis/correlation",
+    "generate_chart": "POST /api/v1/visualization/chart",
+    "create_dashboard": "POST /api/v1/visualization/dashboard",
+    "train_model": "POST /api/v1/ml/train",
+    "make_prediction": "POST /api/v1/ml/predict",
+    "validate_quality": "POST /api/v1/validation/quality",
+    "validate_schema": "POST /api/v1/validation/schema",
+    "generate_report": "POST /api/v1/reports/generate",
+    "export_report": "POST /api/v1/reports/export"
+  },
+  "supported_formats": {
+    "input": ["csv", "json", "excel", "parquet"],
+    "output": ["json", "csv", "pdf", "html", "png", "svg"]
+  }
+}
