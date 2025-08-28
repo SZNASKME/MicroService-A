@@ -28,14 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      SERVICE: ${{ github.event_name == 'workflow_dispatch' && inputs.service || env.SERVICE }}
+      SERVICE: ${{ github.event_name == 'workflow_dispatch' && inputs.service || 'orders' }}
       TARGET_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging' }}
     
-    environment: ${{ env.TARGET_ENV }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging' }}
     
-    # ✅ ย้ายมาวางที่ระดับ job
     concurrency:
-      group: ${{ env.TARGET_ENV }}-${{ env.SERVICE }}
+      group: ${{ (github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging') }}-${{ (github.event_name == 'workflow_dispatch' && inputs.service || 'orders') }}
       cancel-in-progress: false
 
     steps:
