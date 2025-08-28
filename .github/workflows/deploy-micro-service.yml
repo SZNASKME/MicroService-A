@@ -1,10 +1,10 @@
-name: deploy-orders-prod-via-uc
+# .github/workflows/deploy-orders-prod-via-stonebranch.yml
+name: build-orders-and-notify-uc
 
 on:
   push:
     branches: [main]
-    # รันเฉพาะเมื่อมีการแก้ไขในโฟลเดอร์ของ service นี้
-    paths: [services/orders/**]
+    paths: [services/orders/**]   # รันเฉพาะเมื่อแก้ service นี้
   workflow_dispatch:
 
 env:
@@ -14,23 +14,21 @@ env:
 
 permissions:
   contents: read
-  packages: write         # push ไป GHCR
-  deployments: write      # สร้าง GitHub Deployment record
+  packages: write
+  deployments: write
 
 concurrency:
   group: prod-${{ env.SERVICE }}
   cancel-in-progress: false
 
 jobs:
-  build-and-push:
+  build-and-send:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    environment: production   # ใช้ environment secrets: UC_URL, UC_TOKEN
     steps:
       - uses: actions/checkout@v4
 
-      # (ออปชัน) ใส่ขั้นตอน test/lint ของคุณที่นี่
-      # - run: npm ci && npm test
-      #   working-directory: services/orders
+      # (ใส่ unit test/lint ของคุณที่นี่ถ้าต้องการ)
 
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -39,7 +37,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push image to GHCR
+      - name: Build & Push image
         uses: docker/build-push-action@v5
         with:
           context: services/orders
@@ -50,8 +48,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Create GitHub Deployment (production)
-        id: create_deploy
+      - name: Create GitHub Deployment
+        id: gh_deploy
         uses: actions/github-script@v7
         with:
           script: |
@@ -61,29 +59,24 @@ jobs:
               ref: context.sha,
               environment: 'production',
               auto_merge: false,
-              required_contexts: [], // ให้ orchestrator ภายนอก (UC) เป็นคนตัดสิน
+              required_contexts: [],
               description: `Deploy ${process.env.SERVICE} via Stonebranch`,
-              transient_environment: false,
               production_environment: true
             });
             core.setOutput('id', res.data.id);
 
       - name: Notify Stonebranch UC to deploy
         env:
-          UC_URL:   ${{ secrets.UC_URL }}     # เช่น https://uc.example.com
-          UC_TOKEN: ${{ secrets.UC_TOKEN }}   # Bearer token/WS token บน UC
+          UC_URL:   ${{ secrets.UC_URL }}
+          UC_TOKEN: ${{ secrets.UC_TOKEN }}
         run: |
           set -euo pipefail
           IMAGE="${IMAGE_REPO}:${GITHUB_SHA}"
-          DEPLOY_ID="${{ steps.create_deploy.outputs.id }}"
-          # เตรียม payload ที่ UC จะใช้ต่อ (image, GitHub deployment id)
+          DEPLOY_ID="${{ steps.gh_deploy.outputs.id }}"
           PAYLOAD=$(printf '{"image":"%s","github_deployment_id":"%s"}' "$IMAGE" "$DEPLOY_ID")
 
-          # ส่ง Universal Event เข้า UC: ให้ UC เริ่ม workflow deploy prod
           curl -sS -X POST \
             "$UC_URL/rest/universalEvent/push?type=deploy_request&service=${SERVICE}&env=prod&sha=${GITHUB_SHA}" \
             -H "Authorization: Bearer $UC_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
-
-          echo "Notified UC to deploy ${SERVICE} (${GITHUB_SHA}) to prod with image ${IMAGE}"
