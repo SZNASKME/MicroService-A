@@ -1,13 +1,14 @@
-name: build-and-notify-uc
+name: trigger-uc-build-and-deploy
 
 on:
   push:
     branches: [main]
+    # แก้ path ให้ตรง service ที่อยาก auto-trigger (ตัวอย่าง: orders)
     paths: [services/orders/**]
   workflow_dispatch:
     inputs:
       service:
-        description: Service name
+        description: Service name (folder under services/)
         default: orders
       target_env:
         description: Target environment
@@ -15,55 +16,43 @@ on:
         options: [staging, production]
         default: staging
 
-env:
-  SERVICE: orders
-
 permissions:
   contents: read
-  packages: write
   deployments: write
 
 jobs:
-  build-and-send:
+  notify-uc:
     runs-on: ubuntu-latest
-    
-    env:
-      SERVICE: ${{ github.event_name == 'workflow_dispatch' && inputs.service || 'orders' }}
-      TARGET_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging' }}
-    
+
+    # ตั้งค่า environment สำหรับ secrets/approval จากค่า inputs (ถ้าไม่กดรันเอง จะ fallback เป็น staging)
     environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging' }}
-    
+
+    # กัน “ยิงซ้อน” ต่อ env+service (ใช้ inputs หากมี ไม่งั้น default)
     concurrency:
       group: ${{ (github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging') }}-${{ (github.event_name == 'workflow_dispatch' && inputs.service || 'orders') }}
       cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare image repo (lowercase)
+
+      # สร้างตัวแปรที่ใช้ต่อใน steps (service, target_env, repo lowercase)
+      - name: Prepare variables
+        id: prep
         run: |
-          echo "IMAGE_REPO=ghcr.io/${GITHUB_REPOSITORY,,}/${SERVICE}" >> $GITHUB_ENV
-          
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          SERVICE="${{ github.event_name == 'workflow_dispatch' && inputs.service || 'orders' }}"
+          TARGET_ENV="${{ github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging' }}"
+          echo "SERVICE=$SERVICE" >> $GITHUB_ENV
+          echo "TARGET_ENV=$TARGET_ENV" >> $GITHUB_ENV
+          echo "REPO=${GITHUB_REPOSITORY}" >> $GITHUB_ENV
+          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
-      - name: Build & Push image
-        uses: docker/build-push-action@v5
-        with:
-          context: services/${{ env.SERVICE }}
-          push: true
-          tags: |
-            ${{ env.IMAGE_REPO }}:${{ github.sha }}
-            ${{ env.IMAGE_REPO }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+      # บันทึก deployment record ที่ GitHub เพื่อผูกสถานะกับ commit นี้
       - name: Create GitHub Deployment
         id: gh_deploy
         uses: actions/github-script@v7
+        env:
+          TARGET_ENV: ${{ env.TARGET_ENV }}
+          SERVICE: ${{ env.SERVICE }}
         with:
           script: |
             const res = await github.rest.repos.createDeployment({
@@ -72,28 +61,38 @@ jobs:
               ref: context.sha,
               environment: process.env.TARGET_ENV,
               auto_merge: false,
-              required_contexts: [],
-              description: `Deploy ${process.env.SERVICE} via Stonebranch`,
+              required_contexts: [], // ให้ UC เป็น gate/ตรวจสอบเอง
+              description: `Build+Deploy ${process.env.SERVICE} via Stonebranch UC`,
               production_environment: process.env.TARGET_ENV === 'production'
             });
             core.setOutput('id', res.data.id);
 
-      - name: Notify Stonebranch UC to deploy
+      # แจ้ง Stonebranch UC ให้เริ่ม build + deploy โดยให้ UC ไป git checkout <sha> เอง
+      - name: Notify Stonebranch UC to build+deploy
         env:
-          UC_URL:   ${{ secrets.UC_URL }}
-          UC_TOKEN: ${{ secrets.UC_TOKEN }}
-          UC_EVENT: ${{ secrets.UC_EVENT }}
+          UC_URL:   ${{ secrets.UC_URL }}    # เช่น https://uc.example.com
+          UC_TOKEN: ${{ secrets.UC_TOKEN }}  # access token/WS token ของ UC
+          UC_EVENT: ${{ secrets.UC_EVENT }}  # ชื่อ/รหัส universal event endpoint
         run: |
           set -euo pipefail
-          IMAGE="${IMAGE_REPO}:${GITHUB_SHA}"
-          DEPLOY_ID="${{ steps.gh_deploy.outputs.id }}"
 
-          # payload JSON (ชัดเจนและครบ)
-          printf -v PAYLOAD '{"event":"deploy_request","service":"%s","env":"%s","sha":"%s","image":"%s","github_deployment_id":"%s"}' \
-            "$SERVICE" "$TARGET_ENV" "$GITHUB_SHA" "$IMAGE" "$DEPLOY_ID"
+          # เตรียม payload JSON
+          printf -v PAYLOAD '{
+            "event": "build_deploy",
+            "service": "%s",
+            "env": "%s",
+            "sha": "%s",
+            "repo": "%s",
+            "repo_lc": "%s",
+            "github_deployment_id": "%s",
+            "metadata": { "source": "github-actions" }
+          }' \
+          "$SERVICE" "$TARGET_ENV" "$GITHUB_SHA" "$REPO" "$REPO_LC" "${{ steps.gh_deploy.outputs.id }}"
+
           echo "Payload: $PAYLOAD"
-          
+
+          # เรียก Universal Event push (ปิด quote ให้ครบ!)
           curl -sS -X POST \
-            "$UC_URL/uc/resources/universalevent/push/$UC_EVENT?access_token=$UC_TOKEN \
+            "$UC_URL/uc/resources/universalevent/push/$UC_EVENT?access_token=$UC_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
