@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths: [services/orders/**]
   workflow_dispatch:
+    inputs:
+      service: { default: orders }
+      target_env: { type: choice, options: [staging, production], default: staging }
 
 env:
   SERVICE: orders
@@ -22,7 +25,7 @@ jobs:
 
     # ✅ ย้ายมาวางที่ระดับ job
     concurrency:
-      group: prod-${{ env.SERVICE }}
+      group: ${{ inputs.target_env }}-${{ inputs.service }}
       cancel-in-progress: false
 
     steps:
