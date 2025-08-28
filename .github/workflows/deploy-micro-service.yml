@@ -18,7 +18,7 @@ permissions:
 jobs:
   build-and-send:
     runs-on: ubuntu-latest
-    environment: production
+    environment: staging
 
     # ✅ ย้ายมาวางที่ระดับ job
     concurrency:
