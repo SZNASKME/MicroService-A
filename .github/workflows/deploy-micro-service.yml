@@ -30,6 +30,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare image repo (lowercase)
+        run: |
+          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          echo "IMAGE_REPO=ghcr.io/${GITHUB_REPOSITORY,,}/${SERVICE}" >> $GITHUB_ENV
+          
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
