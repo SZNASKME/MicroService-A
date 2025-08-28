@@ -1,4 +1,4 @@
-name: build-orders-and-notify-uc
+name: build-and-notify-uc
 
 on:
   push:
