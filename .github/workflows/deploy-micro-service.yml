@@ -1,15 +1,13 @@
-# .github/workflows/deploy-orders-prod-via-stonebranch.yml
 name: build-orders-and-notify-uc
 
 on:
   push:
     branches: [main]
-    paths: [services/orders/**]   # รันเฉพาะเมื่อแก้ service นี้
+    paths: [services/orders/**]
   workflow_dispatch:
 
 env:
   SERVICE: orders
-  NAMESPACE: orders
   IMAGE_REPO: ghcr.io/${{ github.repository }}/orders
 
 permissions:
@@ -17,36 +15,31 @@ permissions:
   packages: write
   deployments: write
 
-concurrency:
-  group: prod-${{ env.SERVICE }}
-  cancel-in-progress: false
-
 jobs:
   build-and-send:
     runs-on: ubuntu-latest
-    environment: production   # ใช้ environment secrets: UC_URL, UC_TOKEN
+    environment: production
+
+    # ✅ ย้ายมาวางที่ระดับ job
+    concurrency:
+      group: prod-${{ env.SERVICE }}
+      cancel-in-progress: false
+
     steps:
       - uses: actions/checkout@v4
-
-      # (ใส่ unit test/lint ของคุณที่นี่ถ้าต้องการ)
-
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & Push image
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: services/orders
           push: true
           tags: |
             ${{ env.IMAGE_REPO }}:${{ github.sha }}
             ${{ env.IMAGE_REPO }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Create GitHub Deployment
         id: gh_deploy
@@ -74,9 +67,7 @@ jobs:
           IMAGE="${IMAGE_REPO}:${GITHUB_SHA}"
           DEPLOY_ID="${{ steps.gh_deploy.outputs.id }}"
           PAYLOAD=$(printf '{"image":"%s","github_deployment_id":"%s"}' "$IMAGE" "$DEPLOY_ID")
-
           curl -sS -X POST \
-            "$UC_URL/rest/universalEvent/push?type=deploy_request&service=${SERVICE}&env=prod&sha=${GITHUB_SHA}" \
-            -H "Authorization: Bearer $UC_TOKEN" \
+            "$UC_URL/uc/resources/universalevent/push?access_token=$UC_TOKEN&type=deploy_request&service=${SERVICE}&env=prod&sha=${GITHUB_SHA}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
