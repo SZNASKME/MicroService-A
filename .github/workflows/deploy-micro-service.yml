@@ -6,8 +6,14 @@ on:
     paths: [services/orders/**]
   workflow_dispatch:
     inputs:
-      service: { default: orders }
-      target_env: { type: choice, options: [staging, production], default: staging }
+      service:
+        description: Service name
+        default: orders
+      target_env:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
 
 env:
   SERVICE: orders
@@ -20,18 +26,22 @@ permissions:
 jobs:
   build-and-send:
     runs-on: ubuntu-latest
-    environment: staging
-
+    
+    env:
+      SERVICE: ${{ github.event_name == 'workflow_dispatch' && inputs.service || env.SERVICE }}
+      TARGET_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.target_env || 'staging' }}
+    
+    environment: ${{ env.TARGET_ENV }}
+    
     # ✅ ย้ายมาวางที่ระดับ job
     concurrency:
-      group: ${{ inputs.target_env }}-${{ inputs.service }}
+      group: ${{ env.TARGET_ENV }}-${{ env.SERVICE }}
       cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
       - name: Prepare image repo (lowercase)
         run: |
-          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
           echo "IMAGE_REPO=ghcr.io/${GITHUB_REPOSITORY,,}/${SERVICE}" >> $GITHUB_ENV
           
       - uses: docker/setup-buildx-action@v3
@@ -40,13 +50,17 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v5
+
+      - name: Build & Push image
+        uses: docker/build-push-action@v5
         with:
-          context: services/orders
+          context: services/${{ env.SERVICE }}
           push: true
           tags: |
             ${{ env.IMAGE_REPO }}:${{ github.sha }}
             ${{ env.IMAGE_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Create GitHub Deployment
         id: gh_deploy
@@ -57,11 +71,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: context.sha,
-              environment: 'production',
+              environment: process.env.TARGET_ENV,
               auto_merge: false,
               required_contexts: [],
               description: `Deploy ${process.env.SERVICE} via Stonebranch`,
-              production_environment: true
+              production_environment: process.env.TARGET_ENV === 'production'
             });
             core.setOutput('id', res.data.id);
 
@@ -69,12 +83,18 @@ jobs:
         env:
           UC_URL:   ${{ secrets.UC_URL }}
           UC_TOKEN: ${{ secrets.UC_TOKEN }}
+          UC_EVENT: ${{ secrets.UC_EVENT }}
         run: |
           set -euo pipefail
           IMAGE="${IMAGE_REPO}:${GITHUB_SHA}"
           DEPLOY_ID="${{ steps.gh_deploy.outputs.id }}"
-          PAYLOAD=$(printf '{"image":"%s","github_deployment_id":"%s"}' "$IMAGE" "$DEPLOY_ID")
+
+          # payload JSON (ชัดเจนและครบ)
+          printf -v PAYLOAD '{"event":"deploy_request","service":"%s","env":"%s","sha":"%s","image":"%s","github_deployment_id":"%s"}' \
+            "$SERVICE" "$TARGET_ENV" "$GITHUB_SHA" "$IMAGE" "$DEPLOY_ID"
+          echo "Payload: $PAYLOAD"
+          
           curl -sS -X POST \
-            "$UC_URL/uc/resources/universalevent/push?access_token=$UC_TOKEN&type=deploy_request&service=${SERVICE}&env=prod&sha=${GITHUB_SHA}" \
+            "$UC_URL/uc/resources/universalevent/push/$UC_EVENT?access_token=$UC_TOKEN \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
