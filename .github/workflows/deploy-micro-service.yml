@@ -11,7 +11,7 @@ on:
 
 env:
   SERVICE: orders
-  IMAGE_REPO: ghcr.io/${{ github.repository }}/orders
+  IMAGE_REPO: ghcr.io/${{ toLower(github.repository) }}/orders
 
 permissions:
   contents: read
