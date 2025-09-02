@@ -109,11 +109,3 @@ def get_config(env: str = None) -> Config:
         env = os.getenv('FLASK_ENV', 'production')
     
     return config_map.get(env, config_map['default'])
-
-def set_config(env: str, config: Config) -> None:
-    """Set configuration for a specific environment"""
-    config_map[env] = config
-
-def delete_config(env: str) -> None:
-    """Delete configuration for a specific environment"""
-    config_map.pop(env, None)
