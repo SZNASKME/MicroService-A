@@ -4,17 +4,28 @@ from io import StringIO
 import logging
 from typing import Dict, Any, Optional
 import json
+from .base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
-class DataProcessor:
+class DataProcessor(BaseService):
     """
     Data processing service for handling file uploads, cleaning, and preprocessing
     """
     
     def __init__(self):
+        super().__init__()
         self.supported_formats = ['csv', 'json', 'excel', 'parquet']
         self.max_file_size = 50 * 1024 * 1024  # 50MB
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get service status"""
+        return self.create_response(
+            data={
+                'supported_formats': self.supported_formats,
+                'max_file_size_mb': self.max_file_size // (1024 * 1024)
+            }
+        )
     
     def upload_and_process(self, request) -> Dict[str, Any]:
         """
