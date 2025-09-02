@@ -2,23 +2,25 @@
 
 ## ภาพรวม
 
-ฉันได้สร้าง **Data Analytics Microservice** ที่ครอบคลุมและแยกตาม feature ต่างๆ สำหรับการวิเคราะห์ข้อมูลดังนี้:
+**Data Analytics Microservice** ที่พร้อม production deployment ด้วย features ต่างๆ สำหรับการวิเคราะห์ข้อมูล
 
 ## 📁 โครงสร้างไฟล์
 
 ```
-MicroService-A/
+services/orders/
 ├── app.py                          # ไฟล์หลักของ microservice
+├── wsgi.py                         # WSGI entry point
 ├── config.py                       # การตั้งค่าต่างๆ
 ├── requirements.txt                # Python dependencies
-├── README.md                       # เอกสารประกอบ
-├── package.json                    # ข้อมูล metadata ของโปรเจค
 ├── Dockerfile                      # สำหรับ containerization
-├── docker-compose.yml              # สำหรับ deployment stack
-├── setup.bat/.sh                   # สคริปต์ติดตั้ง
-├── test_api.py                     # ทดสอบ API แบบครบถ้วน
-├── simple_test.py                  # ทดสอบ API แบบง่าย
-├── auto_label_microservice.py      # ไฟล์เดิม (สำหรับอ้างอิง)
+├── .dockerignore                   # Docker ignore rules
+├── .env.production                 # Production environment variables
+├── start.sh/start.bat              # Production startup scripts
+├── test_production.py              # Production readiness tests
+├── README.md                       # เอกสารหลัก
+├── PRODUCTION_GUIDE.md             # คู่มือ deployment
+├── METRICS_FEATURE.md              # เอกสาร metrics feature
+├── USAGE_GUIDE.md                  # คู่มือการใช้งาน (ไฟล์นี้)
 └── features/                       # โฟลเดอร์ features หลัก
     ├── __init__.py
     ├── data_processor.py           # 📊 ประมวลผลข้อมูล
@@ -26,7 +28,8 @@ MicroService-A/
     ├── visualization_service.py    # 📋 การแสดงผลและกราฟ
     ├── ml_predictor.py             # 🤖 Machine Learning
     ├── data_validator.py           # ✅ ตรวจสอบคุณภาพข้อมูล
-    └── report_generator.py         # 📄 สร้างรายงาน
+    ├── report_generator.py         # 📄 สร้างรายงาน
+    └── metrics_service.py          # 📊 API Metrics & Monitoring
 ```
 
 ## 🚀 Features หลัก
