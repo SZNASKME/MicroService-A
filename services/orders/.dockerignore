@@ -1,19 +1,19 @@
-# Python cache
-__pycache__
-*.pyc
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
 *.pyo
 *.pyd
 .Python
 
 # Virtual environments
-env
-venv
+env/
+venv/
 .env
-.venv
+.venv/
 
-# IDE files
-.vscode
-.idea
+# IDE and editor files
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
@@ -24,24 +24,23 @@ Thumbs.db
 
 # Logs
 *.log
-logs/*.log
 
 # Test files
 .coverage
 .coverage.*
 .cache
+.pytest_cache
+.hypothesis/
 nosetests.xml
 coverage.xml
 *.cover
-.pytest_cache
-.hypothesis
 
 # Documentation
 *.md
 docs/
 
 # Development files
-.git
+.git/
 .gitignore
 .gitattributes
 
@@ -53,20 +52,15 @@ docker-compose*
 # Environment files (security)
 .env.*
 
-# Development tools
-.tox
-pip-log.txt
-pip-delete-this-directory.txt
-
 # Build artifacts
 build/
 dist/
 *.egg-info/
 
-# Kubernetes manifests
+# Kubernetes and deployment
 k8s/
 charts/
 
-# Test reports
+# Test reports and results
 *_test_report.*
 test_results/
