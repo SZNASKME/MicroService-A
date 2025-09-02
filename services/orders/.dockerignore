@@ -1,37 +1,72 @@
+# Python cache
 __pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
+
+# Virtual environments
 env
-pip-log.txt
-pip-delete-this-directory.txt
-.tox
+venv
+.env
+.venv
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/*.log
+
+# Test files
 .coverage
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
-*.log
-.git
-.mypy_cache
 .pytest_cache
 .hypothesis
-.vscode
-.idea
-*.swp
-*.swo
-*~
-.DS_Store
+
+# Documentation
 *.md
-Dockerfile*
-docker-compose*
+docs/
+
+# Development files
+.git
 .gitignore
 .gitattributes
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Environment files (security)
+.env.*
+
+# Development tools
+.tox
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Kubernetes manifests
 k8s/
 charts/
-.dockerignore
-README*
-tests/
-docs/
+
+# Test reports
+*_test_report.*
+test_results/

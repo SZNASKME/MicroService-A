@@ -30,23 +30,25 @@ COPY --chown=appuser:appuser . .
 
 # Create necessary directories
 RUN mkdir -p uploads logs && \
-    chown -R appuser:appuser uploads logs
+    chown -R appuser:appuser uploads logs && \
+    chmod +x start.sh
 
 USER appuser
 
-# Environment variables
+# Environment variables for production
 ENV PATH=/home/appuser/.local/bin:$PATH \
-    FLASK_APP=app.py \
     FLASK_ENV=production \
     PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=5000 \
+    WORKERS=4
 
 EXPOSE 5000
 
 # Improved health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Use gunicorn for production instead of Flask dev server
-CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]
+# Use gunicorn for production with optimized settings
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "sync", "--timeout", "30", "--keep-alive", "2", "--max-requests", "1000", "--max-requests-jitter", "100", "wsgi:application"]
