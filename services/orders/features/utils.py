@@ -52,3 +52,7 @@ def validate_request_data(data: Dict[str, Any], required_fields: list) -> Option
         return f"Missing required fields: {', '.join(missing_fields)}"
     
     return None
+
+def extract_request_data(data: Dict[str, Any], fields: list) -> Dict[str, Any]:
+    """Extract specific fields from request data"""
+    return {field: data.get(field) for field in fields}
