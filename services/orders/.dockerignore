@@ -22,10 +22,14 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs and runtime
 *.log
+logs/
+uploads/
 
-# Test files
+# Test files and development
+test_*.py
+*_test.py
 .coverage
 .coverage.*
 .cache
@@ -35,9 +39,13 @@ nosetests.xml
 coverage.xml
 *.cover
 
-# Documentation
+# Documentation (exclude from image)
 *.md
 docs/
+FILE_STRUCTURE.md
+METRICS_FEATURE.md
+PRODUCTION_GUIDE.md
+USAGE_GUIDE.md
 
 # Development files
 .git/
@@ -45,22 +53,24 @@ docs/
 .gitattributes
 
 # Docker files
-Dockerfile*
 docker-compose*
-.dockerignore
 
 # Environment files (security)
-.env.*
+.env.development
+.env.testing
 
 # Build artifacts
 build/
 dist/
 *.egg-info/
 
-# Kubernetes and deployment
+# Kubernetes and deployment configs
 k8s/
 charts/
 
 # Test reports and results
 *_test_report.*
 test_results/
+
+# Development scripts
+setup.*

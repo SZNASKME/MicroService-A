@@ -32,8 +32,12 @@ WORKDIR /app
 # Copy Python packages from builder stage with proper ownership
 COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 
-# Copy application code with proper ownership
-COPY --chown=appuser:appuser . .
+# Copy only necessary application files
+COPY --chown=appuser:appuser app.py .
+COPY --chown=appuser:appuser wsgi.py .
+COPY --chown=appuser:appuser config.py .
+COPY --chown=appuser:appuser .env.production .env
+COPY --chown=appuser:appuser features/ features/
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads logs \
