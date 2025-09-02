@@ -109,24 +109,3 @@ def get_config(env: str = None) -> Config:
         env = os.getenv('FLASK_ENV', 'production')
     
     return config_map.get(env, config_map['default'])
-SECRET_KEY = 'your-secret-key-here'
-JWT_SECRET_KEY = 'your-jwt-secret-key'
-JWT_EXPIRATION_HOURS = 24
-
-# Database Configuration (for future implementation)
-DATABASE_URL = 'sqlite:///data_analytics.db'
-REDIS_URL = 'redis://localhost:6379/0'
-
-# External API Configuration (if needed)
-EXTERNAL_API_TIMEOUT = 30
-EXTERNAL_API_RETRIES = 3
-
-# Caching Configuration
-CACHE_TYPE = 'simple'
-CACHE_DEFAULT_TIMEOUT = 300  # 5 minutes
-
-# Feature Flags
-ENABLE_ML_FEATURES = True
-ENABLE_ADVANCED_ANALYTICS = True
-ENABLE_REAL_TIME_PROCESSING = False
-ENABLE_DATA_STREAMING = False
