@@ -3,6 +3,9 @@ import logging
 from datetime import datetime
 import os
 import sys
+from config import get_config
+from features.utils import handle_api_errors, create_api_response
+from features.route_factory import create_api_route
 
 # Import feature modules
 from features.data_processor import DataProcessor
@@ -20,15 +23,15 @@ try:
 except ImportError:
     CORS_AVAILABLE = False
 
+# Get configuration
+config = get_config()
+
 # Configure logging for production
 def configure_logging():
     """Configure logging for production environment"""
-    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    
     logging.basicConfig(
-        level=getattr(logging, log_level),
-        format=log_format,
+        level=getattr(logging, config.LOG_LEVEL),
+        format=config.LOG_FORMAT,
         handlers=[
             logging.StreamHandler(sys.stdout),
             logging.FileHandler('logs/app.log') if os.path.exists('logs') else logging.StreamHandler(sys.stdout)
@@ -44,241 +47,99 @@ logger = configure_logging()
 
 app = Flask(__name__)
 
-# Production configuration
-app.config.update(
-    SECRET_KEY=os.getenv('SECRET_KEY', 'dev-secret-change-in-production'),
-    JSON_SORT_KEYS=False,
-    JSONIFY_PRETTYPRINT_REGULAR=False,  # Disable pretty print for smaller responses
-    MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB max file size
-)
+# Apply configuration
+app.config.from_object(config)
 
 # Enable CORS if available
 if CORS_AVAILABLE:
-    CORS(app, origins=os.getenv('CORS_ORIGINS', '*').split(','))
+    CORS(app, origins=config.CORS_ORIGINS)
 
 # Initialize feature services
 def create_services():
     """Initialize feature services with error handling"""
-    try:
-        return {
-            'data_processor': DataProcessor(),
-            'statistical_analyzer': StatisticalAnalyzer(),
-            'visualization_service': VisualizationService(),
-            'ml_predictor': MLPredictor(),
-            'data_validator': DataValidator(),
-            'report_generator': ReportGenerator(),
-            'metrics_service': MetricsService()
-        }
-    except Exception as e:
-        logger.error(f"Error initializing services: {str(e)}")
-        raise
+    services = [
+        DataProcessor(), StatisticalAnalyzer(), VisualizationService(),
+        MLPredictor(), DataValidator(), ReportGenerator(), MetricsService()
+    ]
+    return services
 
-services = create_services()
-data_processor = services['data_processor']
-statistical_analyzer = services['statistical_analyzer']
-visualization_service = services['visualization_service']
-ml_predictor = services['ml_predictor']
-data_validator = services['data_validator']
-report_generator = services['report_generator']
-metrics_service = services['metrics_service']
+data_processor, statistical_analyzer, visualization_service, ml_predictor, \
+data_validator, report_generator, metrics_service = create_services()
 
 @app.route('/health', methods=['GET'])
 @track_metrics(metrics_service)
 def health_check():
     """Health check endpoint for Kubernetes"""
-    try:
-        # Basic health checks
-        health_status = {
-            'status': 'healthy',
-            'timestamp': datetime.now().isoformat(),
-            'service': 'Data Analytics Microservice',
-            'version': os.getenv('APP_VERSION', '1.0.0'),
-            'environment': os.getenv('FLASK_ENV', 'production')
+    health_status = {
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'service': config.APP_NAME,
+        'version': config.APP_VERSION,
+        'environment': os.getenv('FLASK_ENV', 'production')
+    }
+    
+    # Optional detailed health check
+    if request.args.get('detailed') == 'true':
+        health_status['services'] = {
+            'data_processor': 'healthy',
+            'statistical_analyzer': 'healthy',
+            'visualization_service': 'healthy',
+            'ml_predictor': 'healthy',
+            'data_validator': 'healthy',
+            'report_generator': 'healthy'
         }
-        
-        # Optional detailed health check
-        if request.args.get('detailed') == 'true':
-            health_status['services'] = {
-                'data_processor': 'healthy',
-                'statistical_analyzer': 'healthy',
-                'visualization_service': 'healthy',
-                'ml_predictor': 'healthy',
-                'data_validator': 'healthy',
-                'report_generator': 'healthy'
-            }
-        
-        return jsonify(health_status)
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return jsonify({
-            'status': 'unhealthy',
-            'timestamp': datetime.now().isoformat(),
-            'error': str(e)
-        }), 500
+    
+    return jsonify(health_status)
 
 # Data Processing Endpoints
-@app.route('/api/v1/data/upload', methods=['POST'])
-@track_metrics(metrics_service)
-def upload_data():
-    """Upload and process data file"""
-    try:
-        result = data_processor.upload_and_process(request)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in upload_data: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+app.add_url_rule('/api/v1/data/upload', 'upload_data', 
+                 create_api_route(data_processor, 'upload_and_process', metrics_service=metrics_service), 
+                 methods=['POST'])
 
-@app.route('/api/v1/data/clean', methods=['POST'])
-@track_metrics(metrics_service)
-def clean_data():
-    """Clean and preprocess data"""
-    try:
-        data = request.get_json()
-        result = data_processor.clean_data(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in clean_data: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+app.add_url_rule('/api/v1/data/clean', 'clean_data',
+                 create_api_route(data_processor, 'clean_data', metrics_service=metrics_service),
+                 methods=['POST'])
 
-# Statistical Analysis Endpoints
-@app.route('/api/v1/analysis/descriptive', methods=['POST'])
-@track_metrics(metrics_service)
-def descriptive_analysis():
-    """Perform descriptive statistical analysis"""
-    try:
-        data = request.get_json()
-        result = statistical_analyzer.descriptive_analysis(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in descriptive_analysis: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# Statistical Analysis Endpoints  
+app.add_url_rule('/api/v1/analysis/descriptive', 'descriptive_analysis',
+                 create_api_route(statistical_analyzer, 'descriptive_analysis', metrics_service=metrics_service),
+                 methods=['POST'])
 
-@app.route('/api/v1/analysis/correlation', methods=['POST'])
-def correlation_analysis():
-    """Perform correlation analysis"""
-    try:
-        data = request.get_json()
-        result = statistical_analyzer.correlation_analysis(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in correlation_analysis: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+app.add_url_rule('/api/v1/analysis/correlation', 'correlation_analysis',
+                 create_api_route(statistical_analyzer, 'correlation_analysis', metrics_service=metrics_service),
+                 methods=['POST'])
 
-# Visualization Endpoints
-@app.route('/api/v1/visualization/chart', methods=['POST'])
-def generate_chart():
-    """Generate various types of charts"""
-    try:
-        data = request.get_json()
-        result = visualization_service.generate_chart(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in generate_chart: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# Register all API endpoints using route factory
+def register_api_routes():
+    """Register all API routes using the route factory"""
+    routes = [
+        # Visualization Endpoints
+        ('/api/v1/visualization/chart', 'generate_chart', visualization_service, 'generate_chart'),
+        ('/api/v1/visualization/dashboard', 'create_dashboard', visualization_service, 'create_dashboard'),
+        
+        # Machine Learning Endpoints  
+        ('/api/v1/ml/train', 'train_model', ml_predictor, 'train_model'),
+        ('/api/v1/ml/predict', 'make_prediction', ml_predictor, 'predict'),
+        
+        # Data Validation Endpoints
+        ('/api/v1/validation/quality', 'validate_data_quality', data_validator, 'check_data_quality'),
+        ('/api/v1/validation/schema', 'validate_schema', data_validator, 'validate_schema'),
+        
+        # Report Generation Endpoints
+        ('/api/v1/reports/generate', 'generate_report', report_generator, 'generate_comprehensive_report'),
+        ('/api/v1/reports/export', 'export_report', report_generator, 'export_report'),
+        
+        # Metrics Endpoints
+        ('/api/v1/metrics', 'get_metrics', metrics_service, 'get_endpoint_metrics'),
+        ('/api/v1/metrics/health', 'get_health_metrics', metrics_service, 'get_health_metrics'),
+    ]
+    
+    for url, endpoint, service, method in routes:
+        app.add_url_rule(url, endpoint,
+                        create_api_route(service, method, metrics_service=metrics_service),
+                        methods=['POST', 'GET'])
 
-@app.route('/api/v1/visualization/dashboard', methods=['POST'])
-def create_dashboard():
-    """Create interactive dashboard"""
-    try:
-        data = request.get_json()
-        result = visualization_service.create_dashboard(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in create_dashboard: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# Machine Learning Endpoints
-@app.route('/api/v1/ml/train', methods=['POST'])
-def train_model():
-    """Train machine learning model"""
-    try:
-        data = request.get_json()
-        result = ml_predictor.train_model(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in train_model: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/v1/ml/predict', methods=['POST'])
-def make_prediction():
-    """Make predictions using trained model"""
-    try:
-        data = request.get_json()
-        result = ml_predictor.predict(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in make_prediction: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# Data Validation Endpoints
-@app.route('/api/v1/validation/quality', methods=['POST'])
-def validate_data_quality():
-    """Validate data quality"""
-    try:
-        data = request.get_json()
-        result = data_validator.check_data_quality(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in validate_data_quality: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/v1/validation/schema', methods=['POST'])
-def validate_schema():
-    """Validate data schema"""
-    try:
-        data = request.get_json()
-        result = data_validator.validate_schema(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in validate_schema: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# Report Generation Endpoints
-@app.route('/api/v1/reports/generate', methods=['POST'])
-def generate_report():
-    """Generate comprehensive data analysis report"""
-    try:
-        data = request.get_json()
-        result = report_generator.generate_comprehensive_report(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in generate_report: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/v1/reports/export', methods=['POST'])
-def export_report():
-    """Export report in various formats"""
-    try:
-        data = request.get_json()
-        result = report_generator.export_report(data)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in export_report: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# Metrics & Monitoring Endpoints
-@app.route('/api/v1/metrics', methods=['GET'])
-@track_metrics(metrics_service)
-def get_metrics():
-    """Get API metrics in JSON format"""
-    try:
-        endpoint = request.args.get('endpoint')
-        result = metrics_service.get_endpoint_metrics(endpoint)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in get_metrics: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/v1/metrics/health', methods=['GET'])
-@track_metrics(metrics_service)
-def get_health_metrics():
-    """Get service health metrics"""
-    try:
-        result = metrics_service.get_health_metrics()
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"Error in get_health_metrics: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+register_api_routes()
 
 @app.route('/metrics', methods=['GET'])
 def prometheus_metrics():
@@ -290,38 +151,32 @@ def prometheus_metrics():
         logger.error(f"Error in prometheus_metrics: {str(e)}")
         return "# Error generating metrics\n", 500, {'Content-Type': 'text/plain; charset=utf-8'}
 
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({
-        'error': 'Endpoint not found',
-        'message': 'The requested resource was not found on this server',
-        'status_code': 404
-    }), 404
+# Error handlers
+error_handlers = {
+    404: ('Endpoint not found', 'The requested resource was not found on this server'),
+    400: ('Bad request', 'The request could not be understood by the server'),
+    413: ('Request entity too large', 'The uploaded file is too large'),
+    500: ('Internal server error', 'An unexpected error occurred')
+}
 
-@app.errorhandler(500)
-def internal_error(error):
-    logger.error(f"Internal server error: {str(error)}")
-    return jsonify({
-        'error': 'Internal server error',
-        'message': 'An unexpected error occurred',
-        'status_code': 500
-    }), 500
+def create_error_handler(status_code):
+    """Factory function to create error handlers"""
+    def handler(error):
+        if status_code == 500:
+            logger.error(f"Internal server error: {str(error)}")
+        
+        error_title, error_message = error_handlers[status_code]
+        return create_api_response(
+            success=False,
+            error=error_title,
+            message=error_message,
+            status_code=status_code
+        )
+    return handler
 
-@app.errorhandler(400)
-def bad_request(error):
-    return jsonify({
-        'error': 'Bad request',
-        'message': 'The request could not be understood by the server',
-        'status_code': 400
-    }), 400
-
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    return jsonify({
-        'error': 'Request entity too large',
-        'message': 'The uploaded file is too large',
-        'status_code': 413
-    }), 413
+# Register error handlers
+for code in error_handlers:
+    app.errorhandler(code)(create_error_handler(code))
 
 def create_app():
     """Application factory for production deployment"""
