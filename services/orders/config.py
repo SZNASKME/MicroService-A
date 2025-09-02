@@ -113,3 +113,7 @@ def get_config(env: str = None) -> Config:
 def set_config(env: str, config: Config) -> None:
     """Set configuration for a specific environment"""
     config_map[env] = config
+
+def delete_config(env: str) -> None:
+    """Delete configuration for a specific environment"""
+    config_map.pop(env, None)
