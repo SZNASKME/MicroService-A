@@ -1,66 +1,30 @@
-# Python cache and bytecode
+# Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
 *.pyd
-.Python
 
-# Virtual environments
-env/
-venv/
+# Environment  
 .env
-.venv/
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
+.env.local
 
 # Logs
 *.log
+logs/
 
-# Test files
-.coverage
-.coverage.*
-.cache
-.pytest_cache
-.hypothesis/
-nosetests.xml
-coverage.xml
-*.cover
-
-# Documentation
-*.md
-docs/
-
-# Development files
+# Development
 .git/
-.gitignore
-.gitattributes
+README.md
+*.md
 
-# Docker files
-Dockerfile*
-docker-compose*
-.dockerignore
+# Build
+uploads/
+temp/
 
-# Environment files (security)
-.env.*
+# IDE
+.vscode/
+.idea/
 
-# Build artifacts
-build/
-dist/
-*.egg-info/
-
-# Kubernetes and deployment
-k8s/
-charts/
-
-# Test reports and results
-*_test_report.*
-test_results/
+# OS
+.DS_Store
+Thumbs.db

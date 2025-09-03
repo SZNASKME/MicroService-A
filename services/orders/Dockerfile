@@ -32,8 +32,15 @@ WORKDIR /app
 # Copy Python packages from builder stage with proper ownership
 COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 
-# Copy application code with proper ownership
-COPY --chown=appuser:appuser . .
+# Copy only necessary application files
+COPY --chown=appuser:appuser app.py .
+COPY --chown=appuser:appuser wsgi.py .
+COPY --chown=appuser:appuser config.py .
+COPY --chown=appuser:appuser features/ features/
+
+# Copy environment file if exists, otherwise skip
+COPY --chown=appuser:appuser .env.production* ./
+RUN if [ -f .env.production ]; then cp .env.production .env; fi
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads logs \
@@ -59,5 +66,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Use gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "sync", "--timeout", "30", "--keep-alive", "2", "--max-requests", "1000", "--max-requests-jitter", "100", "wsgi:application"]
+# Use gunicorn for production with fallback
+CMD ["sh", "-c", "if [ -f wsgi.py ]; then gunicorn --bind 0.0.0.0:5000 --workers 4 --worker-class sync --timeout 30 --keep-alive 2 --max-requests 1000 --max-requests-jitter 100 wsgi:application; else python app.py; fi"]
