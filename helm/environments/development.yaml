@@ -1,0 +1,39 @@
+# Development environment values
+replicaCount: 1
+
+image:
+  tag: "latest"
+  pullPolicy: Always
+
+container:
+  env:
+    FLASK_ENV: development
+    LOG_LEVEL: DEBUG
+    DEBUG: "true"
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "250m"
+
+autoscaling:
+  enabled: false
+
+healthCheck:
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+
+ingress:
+  enabled: false
+
+service:
+  nodePort:
+    enabled: true
+    port: 30001

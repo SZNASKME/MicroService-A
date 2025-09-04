@@ -1,0 +1,18 @@
+apiVersion: v2
+name: microservice-a
+description: A Helm chart for MicroService-A Data Analytics Service
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - microservice
+  - data-analytics
+  - flask
+  - python
+home: https://github.com/sznaskme/MicroService-A
+sources:
+  - https://github.com/sznaskme/MicroService-A
+maintainers:
+  - name: SZNASKME
+    email: your-email@example.com
+icon: https://raw.githubusercontent.com/sznaskme/MicroService-A/main/icon.png
